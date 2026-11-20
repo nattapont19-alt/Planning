@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>วางแผนคำนวณภาษีบุคคลธรรมดา &amp; ใบแนบออกจากงาน (Pro)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Prompt', sans-serif;
+      background-color: #f8fafc;
+      color: #1e293b;
+    }
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-20">
+  <!-- แถบหัวเว็บและสรุปผลแบบติดหน้าจอ (Sticky Summary) -->
+  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="inline-block text-xs font-medium px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+            เกณฑ์เงินชดเชย 400 วัน / สูงสุด 600,000 บาท
+          </span>
+          <span id="filingModeBadge" class="inline-block text-xs font-medium px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800">
+            ยื่นคนเดียว / แยกยื่น
+          </span>
+        </div>
+        <h1 class="text-lg md:text-xl font-bold text-slate-900 mt-1">
+          วางแผนคำนวณภาษี &amp; ใบแนบออกจากงาน
+        </h1>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-4 md:gap-6">
+        <div class="text-right">
+          <div class="text-xs text-slate-500">ภาษีรวมที่แนะนำ (คุ้มสุด)</div>
+          <div id="headerBestTax" class="text-lg md:text-2xl font-bold text-emerald-600 tabular-nums">0 บาท</div>
+        </div>
+        <div class="hidden sm:block h-8 w-px bg-slate-200"></div>
+        <div class="text-right">
+          <div id="headerBalanceLabel" class="text-xs text-slate-500">สุทธิหลังหัก ณ ที่จ่าย</div>
+          <div id="headerNetBalance" class="text-base md:text-lg font-bold text-slate-900 tabular-nums">0 บาท</div>
+        </div>
+        <div class="hidden md:block h-8 w-px bg-slate-200"></div>
+        <div class="hidden md:block text-right">
+          <div class="text-xs text-slate-500">เงินได้สุทธิ (เงินได้ปกติ)</div>
+          <div id="headerNetIncome" class="text-sm md:text-base font-semibold text-slate-700 tabular-nums">0 บาท</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- แถบควบคุมโหมดการทำงานสำหรับทีมงาน -->
+  <div class="max-w-7xl mx-auto px-4 mt-4">
+    <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs font-semibold text-slate-500 mr-1">โหมดการยื่นภาษี:</span>
+        <button type="button" id="modeSingleBtn"
+          class="mode-btn px-3.5 py-1.5 rounded-xl text-sm font-medium bg-sky-600 text-white transition">
+          ยื่นคนเดียว / แยกยื่น
+        </button>
+        <button type="button" id="modeJoint401Btn"
+          class="mode-btn px-3.5 py-1.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+          ยื่นรวมคู่สมรส (เงินเดือน 40(1))
+        </button>
+        <button type="button" id="modeJointOtherBtn"
+          class="mode-btn px-3.5 py-1.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+          ยื่นรวมคู่สมรส (เงินได้อื่น 40(2)-(8))
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button type="button" id="toggleDetailBtn"
+          class="px-3.5 py-1.5 rounded-xl text-sm font-medium border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition">
+          โหมดละเอียด (ประกัน / กองทุน)
+        </button>
+        <button type="button" id="resetFormBtn"
+          class="px-3 py-1.5 rounded-xl text-sm font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition">
+          รีเซ็ตค่าเริ่มต้น
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- ฝั่งซ้าย: ฟอร์มกรอกข้อมูลแบ่งหมวด -->
+    <section class="lg:col-span-7 space-y-6">
+      <!-- หมวดที่ 1: เงินได้ปกติ 40(1) - 40(2) -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-xs">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h2 class="text-base md:text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center text-sm font-bold">1</span>
+            เงินได้พึงประเมินปกติ 40(1)–40(2) (ทั้งปี)
+          </h2>
+          <span class="text-xs text-slate-500">หักค่าใช้จ่ายเหมา 50% ไม่เกิน 100,000 บ.</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">เงินเดือน / ค่าจ้างรวมทั้งปี (บาท)</label>
+            <input id="salary" type="number" min="0" step="1000" value="720000"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">โบนัส / คอมมิชชั่น / เงินได้พิเศษ (บาท)</label>
+            <input id="bonus" type="number" min="0" step="1000" value="120000"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none" />
+          </div>
+        </div>
+
+        <!-- กล่องข้อมูลคู่สมรส (แสดงเมื่อเลือกยื่นรวม) -->
+        <div id="spouseSection" class="hidden mt-5 pt-4 border-t border-sky-100 bg-sky-50/40 rounded-xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-sky-900">ข้อมูลคู่สมรส (กรณียื่นรวมกัน)</h3>
+            <span id="spouseRuleNote" class="text-xs text-sky-700"></span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-700 mb-1">เงินได้รวมคู่สมรสทั้งปี (บาท)</label>
+              <input id="spouseIncome" type="number" min="0" step="1000" value="0"
+                class="calc-input w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-right tabular-nums focus:border-sky-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-700 mb-1">ค่าลดหย่อนส่วนตัวคู่สมรส (สูงสุด 60,000)</label>
+              <input id="spousePersonalDed" type="number" min="0" max="60000" step="1000" value="60000"
+                class="calc-input w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-right tabular-nums focus:border-sky-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-700 mb-1">ลดหย่อนเฉพาะคู่สมรส / หัก ณ ที่จ่ายคู่สมรส</label>
+              <input id="spouseWht" type="number" min="0" step="500" value="0"
+                class="calc-input w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-right tabular-nums focus:border-sky-500 outline-none" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- หมวดที่ 2: เงินได้ประเภทอื่น และการขายกองทุน -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-xs">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h2 class="text-base md:text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center text-sm font-bold">2</span>
+            เงินได้ประเภทอื่น &amp; การขายกองทุน
+          </h2>
+          <span class="text-xs text-slate-500">รองรับเงินได้เสริมและกำไร/ยอดขายกองทุน</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              เงินได้อื่น 40(5)–40(8) เช่น ฟรีแลนซ์/ค่าเช่า/ขายของ
+            </label>
+            <input id="otherIncome" type="number" min="0" step="1000" value="0"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              หักค่าใช้จ่ายเงินได้อื่น (บาท)
+            </label>
+            <input id="otherIncomeExpense" type="number" min="0" step="1000" value="0"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none" />
+            <p class="text-xs text-slate-400 mt-1">กรอกยอดค่าใช้จ่ายที่หักได้จริงหรือตามเกณฑ์ของเงินได้นั้น</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              กำไร / เงินได้จากการขายกองทุนทั่วไป (บาท)
+            </label>
+            <input id="fundGainGeneral" type="number" min="0" step="1000" value="0"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none" />
+            <p class="text-xs text-slate-400 mt-1">รวมเข้าเงินได้พึงประเมินเพื่อคำนวณภาษี</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              ยอดขายคืนกองทุนลดหย่อนภาษีที่ผิดเงื่อนไข (RMF/SSF/ThaiESG)
+            </label>
+            <input id="fundTaxDisqualified" type="number" min="0" step="1000" value="0"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-rose-500 focus:ring-2 focus:ring-rose-200 outline-none" />
+            <p class="text-xs text-rose-600 mt-1">หากขายผิดเงื่อนไข ยอดที่ต้องนำมารวมคำนวณ/คืนภาษี</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- หมวดที่ 3: ใบแนบเงินได้จากการออกจากงาน -->
+      <div class="bg-white rounded-2xl border border-sky-200 p-5 md:p-6 shadow-xs">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h2 class="text-base md:text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center text-sm font-bold">3</span>
+            เงินได้จากการออกจากงาน (ใบแนบ)
+          </h2>
+          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+            ยกเว้น: ไม่เกิน 400 วัน และไม่เกิน 600,000 บ.
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">เงินชดเชยที่ได้รับจริง (บาท)</label>
+            <input id="severanceReceived" type="number" min="0" step="1000" value="900000"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">ค่าจ้าง 400 วันสุดท้าย (บาท)</label>
+            <input id="wage400Days" type="number" min="0" step="1000" value="800000"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">เงินก้อนออกจากงานอื่น (ถ้ามี)</label>
+            <input id="otherSeverance" type="number" min="0" step="1000" value="0"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">อายุงาน (ปี)</label>
+            <input id="yearsOfService" type="number" min="0" max="60" step="1" value="10"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none" />
+            <p id="yearsHint" class="text-xs text-slate-500 mt-1"></p>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+          <div class="bg-emerald-50/70 rounded-xl p-3">
+            <div class="text-xs text-emerald-700">เงินชดเชยที่ได้รับยกเว้น</div>
+            <div id="exemptSeveranceText" class="text-base font-bold text-emerald-800 tabular-nums mt-0.5">0 บาท</div>
+          </div>
+          <div class="bg-amber-50/70 rounded-xl p-3">
+            <div class="text-xs text-amber-700">ยอดเงินออกจากงานส่วนที่ต้องคิดภาษี</div>
+            <div id="taxableSeveranceGrossText" class="text-base font-bold text-amber-900 tabular-nums mt-0.5">0 บาท</div>
+          </div>
+          <div class="bg-slate-100 rounded-xl p-3">
+            <div class="text-xs text-slate-600">ฐานภาษีใบแนบ (หลังหัก 2 ต่อ)</div>
+            <div id="annexBaseText" class="text-base font-bold text-slate-800 tabular-nums mt-0.5">0 บาท</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- หมวดที่ 4: ค่าลดหย่อน (ประกันชีวิต สุขภาพ บำนาญ และกองทุน) -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-xs">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h2 class="text-base md:text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">4</span>
+            รายการค่าลดหย่อน (ประกัน &amp; กองทุน)
+          </h2>
+          <span class="text-xs text-indigo-700 font-medium">ปรับตัวเลขตามจริง</span>
+        </div>
+
+        <!-- โหมดง่าย -->
+        <div id="simpleDedBox" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">ลดหย่อนส่วนตัว (บาท)</label>
+            <input id="personalDed" type="number" min="0" step="1000" value="60000"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">ลดหย่อนครอบครัว / บุตร / บิดามารดา</label>
+            <input id="familyDed" type="number" min="0" step="1000" value="0"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">ประกันชีวิต &amp; ประกันสุขภาพรวม</label>
+            <input id="insuranceDedSimple" type="number" min="0" step="1000" value="50000"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">กองทุนสำรองเลี้ยงชีพ / RMF / บำนาญ / ThaiESG</label>
+            <input id="fundDedSimple" type="number" min="0" step="1000" value="50000"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none" />
+          </div>
+        </div>
+
+        <!-- โหมดละเอียดสำหรับที่ปรึกษาประกันและกองทุน -->
+        <div id="detailDedBox" class="hidden space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">ลดหย่อนส่วนตัว (บาท)</label>
+              <input id="personalDedDetail" type="number" min="0" step="1000" value="60000"
+                class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-indigo-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">ครอบครัว / บุตร / บิดามารดา / ประกันสุขภาพบิดามารดา</label>
+              <input id="familyDedDetail" type="number" min="0" step="1000" value="0"
+                class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-indigo-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">เบี้ยประกันชีวิตทั่วไป (สูงสุด 100,000 บ.)</label>
+              <input id="lifeInsDed" type="number" min="0" step="1000" value="30000"
+                class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-indigo-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">เบี้ยประกันสุขภาพตนเอง (รวมชีวิตไม่เกิน 100,000 บ.)</label>
+              <input id="healthInsDed" type="number" min="0" step="1000" value="20000"
+                class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-indigo-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">ประกันชีวิตแบบบำนาญ</label>
+              <input id="annuityInsDed" type="number" min="0" step="1000" value="0"
+                class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-indigo-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">กองทุนสำรองเลี้ยงชีพ (PVD) / กบข.</label>
+              <input id="pvdDed" type="number" min="0" step="1000" value="30000"
+                class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-indigo-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">กองทุน RMF / SSF</label>
+              <input id="rmfSsfDed" type="number" min="0" step="1000" value="20000"
+                class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-indigo-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">กองทุน ThaiESG</label>
+              <input id="thaiEsgDed" type="number" min="0" step="1000" value="0"
+                class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-indigo-500 outline-none" />
+            </div>
+          </div>
+
+          <!-- แถบแจ้งเตือนเพดานลดหย่อนแบบอัตโนมัติ -->
+          <div id="quotaAlertBox" class="rounded-xl bg-indigo-50 border border-indigo-200 p-3.5 text-xs text-indigo-900 space-y-1">
+            <div class="font-semibold">สรุปเพดานลดหย่อนกลุ่มประกันและกองทุน</div>
+            <div id="lifeHealthQuotaText"></div>
+            <div id="retirementQuotaText"></div>
+            <div id="thaiEsgQuotaText"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- หมวดที่ 5: ภาษีหัก ณ ที่จ่าย (WHT) -->
+      <div class="bg-white rounded-2xl border border-emerald-200 p-5 md:p-6 shadow-xs">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h2 class="text-base md:text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold">5</span>
+            ภาษีหัก ณ ที่จ่ายที่ถูกหักไปแล้ว (WHT)
+          </h2>
+          <span class="text-xs text-emerald-700 font-medium">ช่วยคำนวณยอดจ่ายเพิ่ม / ขอคืนจริง</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">หัก ณ ที่จ่าย เงินได้ปกติ (บาท)</label>
+            <input id="whtRegular" type="number" min="0" step="500" value="15000"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">หัก ณ ที่จ่าย ใบแนบออกจากงาน (บาท)</label>
+            <input id="whtAnnex" type="number" min="0" step="500" value="0"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">หัก ณ ที่จ่าย กองทุน / เงินได้อื่น (บาท)</label>
+            <input id="whtOther" type="number" min="0" step="500" value="0"
+              class="calc-input w-full rounded-xl border border-slate-300 px-3.5 py-2 text-right tabular-nums focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ฝั่งขวา: เปรียบเทียบวิธีคำนวณและสรุปผล -->
+    <aside class="lg:col-span-5 space-y-6">
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-xs space-y-4">
+        <h2 class="text-base md:text-lg font-semibold text-slate-900">เปรียบเทียบวิธีคำนวณเงินได้ออกจากงาน</h2>
+
+        <!-- ทางเลือกที่ 1: แยกคำนวณใบแนบ -->
+        <div id="cardAnnex" class="rounded-xl border-2 p-4 transition">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-slate-900">วิธีที่ 1: แยกคำนวณในใบแนบ</span>
+            <span id="badgeAnnex" class="text-xs font-semibold px-2.5 py-0.5 rounded-full"></span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">
+            เงินได้ออกจากงานส่วนที่ต้องเสียภาษี หัก (ปี × 7,000) แล้วหักอีก 50% คิดภาษีแยกจากเงินได้ปกติ
+          </p>
+          <div class="mt-3 flex items-baseline justify-between">
+            <span class="text-sm text-slate-600">ภาษีรวม 2 ส่วน</span>
+            <span id="taxMethodAnnex" class="text-xl font-bold text-slate-900 tabular-nums">0 บาท</span>
+          </div>
+          <div id="balanceMethodAnnex" class="mt-1 text-right text-xs font-medium tabular-nums"></div>
+        </div>
+
+        <!-- ทางเลือกที่ 2: รวมกับเงินได้ปกติ -->
+        <div id="cardCombined" class="rounded-xl border-2 p-4 transition">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-slate-900">วิธีที่ 2: นำไปรวมกับเงินได้ปกติ</span>
+            <span id="badgeCombined" class="text-xs font-semibold px-2.5 py-0.5 rounded-full"></span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">
+            นำเงินได้ออกจากงานส่วนที่ต้องเสียภาษี มารวมคำนวณเป็นเงินได้พึงประเมินปกติทั้งปี
+          </p>
+          <div class="mt-3 flex items-baseline justify-between">
+            <span class="text-sm text-slate-600">ภาษีรวมทั้งหมด</span>
+            <span id="taxMethodCombined" class="text-xl font-bold text-slate-900 tabular-nums">0 บาท</span>
+          </div>
+          <div id="balanceMethodCombined" class="mt-1 text-right text-xs font-medium tabular-nums"></div>
+        </div>
+
+        <div id="savingsBanner" class="rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 text-sm text-emerald-900"></div>
+        <div id="fundWarningBanner" class="hidden rounded-xl bg-rose-50 border border-rose-200 p-3.5 text-xs text-rose-800"></div>
+      </div>
+
+      <!-- สรุปรายละเอียดตัวเลข -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-xs space-y-3 text-sm">
+        <h3 class="font-semibold text-slate-900 text-base">รายละเอียดการคำนวณทั้งปี</h3>
+        <div class="flex justify-between py-1.5 border-b border-slate-100">
+          <span class="text-slate-600">เงินได้ 40(1)–40(2) รวม</span>
+          <span id="sumIncome40" class="font-medium tabular-nums">0 บาท</span>
+        </div>
+        <div class="flex justify-between py-1.5 border-b border-slate-100">
+          <span class="text-slate-600">เงินได้อื่น &amp; กองทุนรวม</span>
+          <span id="sumOtherAndFund" class="font-medium tabular-nums">0 บาท</span>
+        </div>
+        <div id="rowSpouseIncome" class="hidden justify-between py-1.5 border-b border-slate-100">
+          <span class="text-slate-600">เงินได้คู่สมรส (ยื่นรวม)</span>
+          <span id="sumSpouseIncome" class="font-medium text-sky-700 tabular-nums">0 บาท</span>
+        </div>
+        <div class="flex justify-between py-1.5 border-b border-slate-100">
+          <span class="text-slate-600">หักค่าใช้จ่ายรวม</span>
+          <span id="sumExpense" class="font-medium text-rose-600 tabular-nums">-0 บาท</span>
+        </div>
+        <div class="flex justify-between py-1.5 border-b border-slate-100">
+          <span class="text-slate-600">หักค่าลดหย่อนรวม</span>
+          <span id="sumDeduction" class="font-medium text-rose-600 tabular-nums">-0 บาท</span>
+        </div>
+        <div class="flex justify-between py-1.5 border-b border-slate-100">
+          <span class="text-slate-600">เงินได้สุทธิ (เงินได้ปกติ)</span>
+          <span id="sumNetRegular" class="font-semibold text-slate-900 tabular-nums">0 บาท</span>
+        </div>
+        <div class="flex justify-between py-1.5 border-b border-slate-100">
+          <span class="text-slate-600">ภาษีหัก ณ ที่จ่ายรวม</span>
+          <span id="sumTotalWht" class="font-semibold text-emerald-700 tabular-nums">0 บาท</span>
+        </div>
+        <div class="flex justify-between py-1.5 border-b border-slate-100">
+          <span id="sumBalanceLabel" class="text-slate-600">ยอดจ่ายเพิ่ม / ขอคืน (ทางเลือกที่คุ้มสุด)</span>
+          <span id="sumBalanceValue" class="font-bold tabular-nums">0 บาท</span>
+        </div>
+        <div class="flex justify-between py-1.5">
+          <span class="text-slate-600">ฐานภาษีขั้นบันไดสูงสุด</span>
+          <span id="topBracketRate" class="font-semibold text-sky-700 tabular-nums">0%</span>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const TAX_BRACKETS = [
+      { max: 150000, rate: 0.00, label: '0%' },
+      { max: 300000, rate: 0.05, label: '5%' },
+      { max: 500000, rate: 0.10, label: '10%' },
+      { max: 750000, rate: 0.15, label: '15%' },
+      { max: 1000000, rate: 0.20, label: '20%' },
+      { max: 2000000, rate: 0.25, label: '25%' },
+      { max: 5000000, rate: 0.30, label: '30%' },
+      { max: Infinity, rate: 0.35, label: '35%' }
+    ];
+
+    let filingMode = 'single'; // 'single' | 'joint_40_1' | 'joint_other'
+    let isDetailMode = false;
+
+    function calculateProgressiveTax(netIncome) {
+      if (netIncome <= 0) return 0;
+      let tax = 0;
+      let prevMax = 0;
+
+      for (const bracket of TAX_BRACKETS) {
+        if (netIncome > prevMax) {
+          const taxableInTier = Math.min(netIncome, bracket.max) - prevMax;
+          tax += taxableInTier * bracket.rate;
+          prevMax = bracket.max;
+        } else {
+          break;
+        }
+      }
+      return Math.floor(tax);
+    }
+
+    function getTopBracketLabel(netIncome) {
+      if (netIncome <= 150000) return '0% (ยกเว้น)';
+      for (const bracket of TAX_BRACKETS) {
+        if (netIncome <= bracket.max) return bracket.label;
+      }
+      return '35%';
+    }
+
+    function formatBaht(num) {
+      return Math.round(num).toLocaleString('th-TH') + ' บาท';
+    }
+
+    function readNumber(id) {
+      const el = document.getElementById(id);
+      if (!el) return 0;
+      const val = parseFloat(el.value);
+      return Number.isFinite(val) && val > 0 ? val : 0;
+    }
+
+    function setFilingMode(mode) {
+      filingMode = mode;
+      const btns = {
+        single: document.getElementById('modeSingleBtn'),
+        joint_40_1: document.getElementById('modeJoint401Btn'),
+        joint_other: document.getElementById('modeJointOtherBtn')
+      };
+      const badge = document.getElementById('filingModeBadge');
+      const spouseSection = document.getElementById('spouseSection');
+      const spouseRuleNote = document.getElementById('spouseRuleNote');
+      const rowSpouseIncome = document.getElementById('rowSpouseIncome');
+
+      Object.entries(btns).forEach(([key, btn]) => {
+        if (key === mode) {
+          btn.className = 'mode-btn px-3.5 py-1.5 rounded-xl text-sm font-medium bg-sky-600 text-white transition';
+        } else {
+          btn.className = 'mode-btn px-3.5 py-1.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition';
+        }
+      });
+
+      if (mode === 'single') {
+        badge.textContent = 'ยื่นคนเดียว / แยกยื่น';
+        spouseSection.classList.add('hidden');
+        rowSpouseIncome.classList.add('hidden');
+        rowSpouseIncome.classList.remove('flex');
+      } else if (mode === 'joint_40_1') {
+        badge.textContent = 'ยื่นรวมคู่สมรส (40(1))';
+        spouseSection.classList.remove('hidden');
+        spouseRuleNote.textContent = 'เงินได้ 40(1) ของคู่สมรส สามารถหักค่าใช้จ่ายเหมา 50% รวมกันไม่เกิน 100,000 บาท';
+        rowSpouseIncome.classList.remove('hidden');
+        rowSpouseIncome.classList.add('flex');
+      } else {
+        badge.textContent = 'ยื่นรวมคู่สมรส (เงินได้อื่น)';
+        spouseSection.classList.remove('hidden');
+        spouseRuleNote.textContent = 'นำเงินได้ประเภทอื่นของคู่สมรสมารวมคำนวณฐานภาษีร่วมกัน';
+        rowSpouseIncome.classList.remove('hidden');
+        rowSpouseIncome.classList.add('flex');
+      }
+
+      recalculate();
+    }
+
+    function toggleDetailMode() {
+      isDetailMode = !isDetailMode;
+      const btn = document.getElementById('toggleDetailBtn');
+      const simpleBox = document.getElementById('simpleDedBox');
+      const detailBox = document.getElementById('detailDedBox');
+
+      if (isDetailMode) {
+        btn.textContent = 'กลับสู่โหมดง่าย';
+        btn.className = 'px-3.5 py-1.5 rounded-xl text-sm font-medium border border-indigo-600 bg-indigo-600 text-white transition';
+        simpleBox.classList.add('hidden');
+        detailBox.classList.remove('hidden');
+      } else {
+        btn.textContent = 'โหมดละเอียด (ประกัน / กองทุน)';
+        btn.className = 'px-3.5 py-1.5 rounded-xl text-sm font-medium border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition';
+        simpleBox.classList.remove('hidden');
+        detailBox.classList.add('hidden');
+      }
+      recalculate();
+    }
+
+    function formatBalanceText(netTax, totalWht) {
+      const diff = netTax - totalWht;
+      if (diff > 0) {
+        return {
+          text: 'ต้องจ่ายเพิ่ม ' + formatBaht(diff),
+          colorClass: 'text-rose-600',
+          headerLabel: 'ต้องจ่ายภาษีเพิ่ม',
+          headerValue: formatBaht(diff)
+        };
+      } else if (diff < 0) {
+        return {
+          text: 'ขอคืนภาษีได้ ' + formatBaht(Math.abs(diff)),
+          colorClass: 'text-emerald-600',
+          headerLabel: 'ขอคืนภาษีได้',
+          headerValue: formatBaht(Math.abs(diff))
+        };
+      }
+      return {
+        text: 'พอดีกับหัก ณ ที่จ่าย',
+        colorClass: 'text-slate-600',
+        headerLabel: 'ยอดจ่ายเพิ่ม / ขอคืน',
+        headerValue: '0 บาท'
+      };
+    }
+
+    function recalculate() {
+      const salary = readNumber('salary');
+      const bonus = readNumber('bonus');
+
+      const spouseIncome = filingMode === 'single' ? 0 : readNumber('spouseIncome');
+      const spousePersonalDed = filingMode === 'single' ? 0 : Math.min(readNumber('spousePersonalDed'), 60000);
+      const spouseWht = filingMode === 'single' ? 0 : readNumber('spouseWht');
+
+      const otherIncome = readNumber('otherIncome');
+      const otherIncomeExpense = Math.min(readNumber('otherIncomeExpense'), otherIncome);
+      const fundGainGeneral = readNumber('fundGainGeneral');
+      const fundTaxDisqualified = readNumber('fundTaxDisqualified');
+
+      const severanceReceived = readNumber('severanceReceived');
+      const wage400Days = readNumber('wage400Days');
+      const otherSeverance = readNumber('otherSeverance');
+      const yearsOfService = readNumber('yearsOfService');
+
+      // 1. คำนวณเงินชดเชยตามเกณฑ์ยกเว้น
+      const exemptSeverance = Math.min(severanceReceived, wage400Days, 600000);
+      const excessSeverance = Math.max(0, severanceReceived - exemptSeverance);
+      const totalTaxableSeveranceGross = excessSeverance + otherSeverance;
+
+      const canUseAnnex = yearsOfService >= 5 && totalTaxableSeveranceGross > 0;
+      const step1Deduction = canUseAnnex
+        ? Math.min(totalTaxableSeveranceGross, yearsOfService * 7000)
+        : 0;
+      const afterStep1 = Math.max(0, totalTaxableSeveranceGross - step1Deduction);
+      const annexTaxableBase = canUseAnnex ? afterStep1 * 0.5 : 0;
+      const annexTaxOnly = canUseAnnex ? calculateProgressiveTax(annexTaxableBase) : 0;
+
+      document.getElementById('yearsHint').textContent =
+        yearsOfService >= 5
+          ? 'อายุงานครบ 5 ปีขึ้นไป: ใช้เกณฑ์ลดหย่อนใบแนบได้ (หัก ' + (yearsOfService * 7000).toLocaleString('th-TH') + ' บ. แล้วหัก 50%)'
+          : 'อายุงานต่ำกว่า 5 ปี: ไม่เข้าเกณฑ์ลดหย่อนใบแนบแบบ 2 ต่อ';
+
+      // 2. คำนวณเงินได้ปกติ + เงินได้อื่น + กองทุน + คู่สมรส
+      const totalIncome40 = salary + bonus;
+      const spouse401 = filingMode === 'joint_40_1' ? spouseIncome : 0;
+      const spouseOther = filingMode === 'joint_other' ? spouseIncome : 0;
+
+      const expense40 = Math.min((totalIncome40 + spouse401) * 0.5, 100000);
+      const totalOtherAndFund = otherIncome + spouseOther + fundGainGeneral + fundTaxDisqualified;
+      const expenseOther = otherIncomeExpense;
+      const expenseDeduction = expense40 + expenseOther;
+
+      // 3. คำนวณค่าลดหย่อน (โหมดง่าย vs โหมดละเอียด)
+      let totalDeduction = 0;
+      if (!isDetailMode) {
+        const personalDed = readNumber('personalDed');
+        const familyDed = readNumber('familyDed');
+        const insuranceDedSimple = readNumber('insuranceDedSimple');
+        const fundDedSimple = readNumber('fundDedSimple');
+        totalDeduction = personalDed + familyDed + spousePersonalDed + insuranceDedSimple + fundDedSimple;
+      } else {
+        const personalDedDetail = readNumber('personalDedDetail');
+        const familyDedDetail = readNumber('familyDedDetail');
+        const lifeInsDed = readNumber('lifeInsDed');
+        const healthInsDed = readNumber('healthInsDed');
+        const annuityInsDed = readNumber('annuityInsDed');
+        const pvdDed = readNumber('pvdDed');
+        const rmfSsfDed = readNumber('rmfSsfDed');
+        const thaiEsgDed = readNumber('thaiEsgDed');
+
+        // ตรวจสอบเพดานเชิงข้อมูลเพื่อช่วยนักวางแผนและลูกข่าย
+        const lifeHealthActual = Math.min(lifeInsDed + healthInsDed, 100000);
+        const lifeOver = Math.max(0, lifeInsDed + healthInsDed - 100000);
+
+        const retirementActual = Math.min(annuityInsDed + pvdDed + rmfSsfDed, 500000);
+        const retirementOver = Math.max(0, annuityInsDed + pvdDed + rmfSsfDed - 500000);
+
+        const thaiEsgActual = Math.min(thaiEsgDed, 300000);
+        const thaiEsgOver = Math.max(0, thaiEsgDed - 300000);
+
+        document.getElementById('lifeHealthQuotaText').textContent =
+          '• ประกันชีวิต + สุขภาพตนเอง: กรอก ' + formatBaht(lifeInsDed + healthInsDed) +
+          ' (อ้างอิงเพดานสูงสุด 100,000 บ.' + (lifeOver > 0 ? ' / เกินเพดาน ' + formatBaht(lifeOver) : '') + ')';
+
+        document.getElementById('retirementQuotaText').textContent =
+          '• กลุ่มเกษียณ/บำนาญ/PVD/RMF/SSF: กรอก ' + formatBaht(annuityInsDed + pvdDed + rmfSsfDed) +
+          ' (อ้างอิงเพดานรวมสูงสุด 500,000 บ.' + (retirementOver > 0 ? ' / เกินเพดาน ' + formatBaht(retirementOver) : '') + ')';
+
+        document.getElementById('thaiEsgQuotaText').textContent =
+          '• กองทุน ThaiESG: กรอก ' + formatBaht(thaiEsgDed) +
+          ' (อ้างอิงเพดานสูงสุด 300,000 บ.' + (thaiEsgOver > 0 ? ' / เกินเพดาน ' + formatBaht(thaiEsgOver) : '') + ')';
+
+        totalDeduction =
+          personalDedDetail +
+          familyDedDetail +
+          spousePersonalDed +
+          lifeHealthActual +
+          retirementActual +
+          thaiEsgActual;
+      }
+
+      const regularGrossBase = totalIncome40 + totalOtherAndFund;
+      const netRegularIncome = Math.max(0, regularGrossBase - expenseDeduction - totalDeduction);
+      const regularTaxOnly = calculateProgressiveTax(netRegularIncome);
+
+      // 4. เปรียบเทียบกรณีแยกใบแนบ vs กรณีรวมกับเงินได้ปกติ
+      const totalTaxAnnexMethod = regularTaxOnly + annexTaxOnly;
+
+      const netCombinedIncome = Math.max(
+        0,
+        regularGrossBase + totalTaxableSeveranceGross - expenseDeduction - totalDeduction
+      );
+      const totalTaxCombinedMethod = calculateProgressiveTax(netCombinedIncome);
+
+      const annexIsBetter = !canUseAnnex || totalTaxAnnexMethod <= totalTaxCombinedMethod;
+      const bestTax = annexIsBetter ? totalTaxAnnexMethod : totalTaxCombinedMethod;
+      const diffTax = Math.abs(totalTaxAnnexMethod - totalTaxCombinedMethod);
+
+      // 5. คำนวณภาษีหัก ณ ที่จ่ายรวม และยอดจ่ายเพิ่ม / ขอคืน
+      const totalWht =
+        readNumber('whtRegular') +
+        readNumber('whtAnnex') +
+        readNumber('whtOther') +
+        spouseWht;
+
+      const annexBalance = formatBalanceText(totalTaxAnnexMethod, totalWht);
+      const combinedBalance = formatBalanceText(totalTaxCombinedMethod, totalWht);
+      const bestBalance = annexIsBetter ? annexBalance : combinedBalance;
+
+      // อัปเดต UI ส่วนหัว
+      document.getElementById('headerBestTax').textContent = formatBaht(bestTax);
+      document.getElementById('headerBalanceLabel').textContent = bestBalance.headerLabel;
+      document.getElementById('headerNetBalance').textContent = bestBalance.headerValue;
+      document.getElementById('headerNetBalance').className = 'text-base md:text-lg font-bold tabular-nums ' + bestBalance.colorClass;
+      document.getElementById('headerNetIncome').textContent = formatBaht(netRegularIncome);
+
+      // อัปเดตใบแนบออกจากงาน
+      document.getElementById('exemptSeveranceText').textContent = formatBaht(exemptSeverance);
+      document.getElementById('taxableSeveranceGrossText').textContent = formatBaht(totalTaxableSeveranceGross);
+      document.getElementById('annexBaseText').textContent = formatBaht(annexTaxableBase);
+
+      document.getElementById('taxMethodAnnex').textContent = canUseAnnex
+        ? formatBaht(totalTaxAnnexMethod)
+        : 'ไม่เข้าเกณฑ์ใบแนบ';
+      document.getElementById('taxMethodCombined').textContent = formatBaht(totalTaxCombinedMethod);
+
+      const elBalAnnex = document.getElementById('balanceMethodAnnex');
+      elBalAnnex.textContent = canUseAnnex ? annexBalance.text : '';
+      elBalAnnex.className = 'mt-1 text-right text-xs font-medium tabular-nums ' + annexBalance.colorClass;
+
+      const elBalCombined = document.getElementById('balanceMethodCombined');
+      elBalCombined.textContent = combinedBalance.text;
+      elBalCombined.className = 'mt-1 text-right text-xs font-medium tabular-nums ' + combinedBalance.colorClass;
+
+      const cardAnnex = document.getElementById('cardAnnex');
+      const cardCombined = document.getElementById('cardCombined');
+      const badgeAnnex = document.getElementById('badgeAnnex');
+      const badgeCombined = document.getElementById('badgeCombined');
+
+      if (canUseAnnex && annexIsBetter) {
+        cardAnnex.className = 'rounded-xl border-2 border-emerald-500 bg-emerald-50/40 p-4 transition';
+        cardCombined.className = 'rounded-xl border-2 border-slate-200 bg-white p-4 transition';
+        badgeAnnex.className = 'text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-600 text-white';
+        badgeAnnex.textContent = 'ประหยัดกว่า';
+        badgeCombined.className = 'text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600';
+        badgeCombined.textContent = 'ทางเลือกอื่น';
+      } else {
+        cardCombined.className = 'rounded-xl border-2 border-emerald-500 bg-emerald-50/40 p-4 transition';
+        cardAnnex.className = 'rounded-xl border-2 border-slate-200 bg-white p-4 transition';
+        badgeCombined.className = 'text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-600 text-white';
+        badgeCombined.textContent = canUseAnnex ? 'ประหยัดกว่า' : 'ใช้เกณฑ์นี้';
+        badgeAnnex.className = 'text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600';
+        badgeAnnex.textContent = canUseAnnex ? 'ทางเลือกอื่น' : 'ไม่เข้าเงื่อนไข';
+      }
+
+      const banner = document.getElementById('savingsBanner');
+      if (totalTaxableSeveranceGross === 0) {
+        banner.textContent = 'เงินได้จากการออกจากงานได้รับยกเว้นภาษีทั้งหมด ระบบคำนวณภาษีจากเงินได้ปกติ/เงินได้อื่น/กองทุน';
+      } else if (!canUseAnnex) {
+        banner.textContent = 'อายุงานน้อยกว่า 5 ปี จึงคำนวณรวมกับเงินได้ปกติเป็นหลัก';
+      } else if (diffTax === 0) {
+        banner.textContent = 'ทั้ง 2 วิธีเสียภาษีเท่ากันที่ ' + formatBaht(bestTax);
+      } else {
+        const winnerName = annexIsBetter ? 'แยกคำนวณในใบแนบ' : 'รวมกับเงินได้ปกติ';
+        banner.textContent = 'เลือก "' + winnerName + '" จะประหยัดภาษีได้มากกว่าอีกวิธี ' + formatBaht(diffTax);
+      }
+
+      const fundWarningBanner = document.getElementById('fundWarningBanner');
+      if (fundTaxDisqualified > 0 || fundGainGeneral > 0) {
+        fundWarningBanner.classList.remove('hidden');
+        fundWarningBanner.textContent =
+          'หมายเหตุการขายกองทุน: ระบบนำยอดที่กรอกมารวมคำนวณเงินได้แล้ว แนะนำให้ตรวจสอบเอกสารรับรองการขายคืนจาก บลจ. เพิ่มเติม หากเป็นการผิดเงื่อนไขกองทุนลดหย่อนภาษีอาจมีรายการเงินเพิ่มหรือคืนภาษีตามรอบปีที่ซื้อ';
+      } else {
+        fundWarningBanner.classList.add('hidden');
+      }
+
+      // อัปเดตตารางสรุปด้านล่าง
+      document.getElementById('sumIncome40').textContent = formatBaht(totalIncome40);
+      document.getElementById('sumOtherAndFund').textContent = formatBaht(totalOtherAndFund);
+      document.getElementById('sumSpouseIncome').textContent = formatBaht(spouseIncome);
+      document.getElementById('sumExpense').textContent = '-' + formatBaht(expenseDeduction);
+      document.getElementById('sumDeduction').textContent = '-' + formatBaht(totalDeduction);
+      document.getElementById('sumNetRegular').textContent = formatBaht(netRegularIncome);
+      document.getElementById('sumTotalWht').textContent = formatBaht(totalWht);
+      document.getElementById('sumBalanceValue').textContent = bestBalance.text;
+      document.getElementById('sumBalanceValue').className = 'font-bold tabular-nums ' + bestBalance.colorClass;
+      document.getElementById('topBracketRate').textContent = getTopBracketLabel(netRegularIncome);
+    }
+
+    document.getElementById('modeSingleBtn').addEventListener('click', () => setFilingMode('single'));
+    document.getElementById('modeJoint401Btn').addEventListener('click', () => setFilingMode('joint_40_1'));
+    document.getElementById('modeJointOtherBtn').addEventListener('click', () => setFilingMode('joint_other'));
+    document.getElementById('toggleDetailBtn').addEventListener('click', toggleDetailMode);
+
+    document.getElementById('resetFormBtn').addEventListener('click', () => {
+      const defaults = {
+        salary: 0,
+        bonus: 0,
+        spouseIncome: 0,
+        spousePersonalDed: 0,
+        spouseWht: 0,
+        otherIncome: 0,
+        otherIncomeExpense: 0,
+        fundGainGeneral: 0,
+        fundTaxDisqualified: 0,
+        severanceReceived: 0,
+        wage400Days: 0,
+        otherSeverance: 0,
+        yearsOfService: 0,
+        personalDed: 0,
+        familyDed: 0,
+        insuranceDedSimple: 0,
+        fundDedSimple: 0,
+        personalDedDetail: 0,
+        familyDedDetail: 0,
+        lifeInsDed: 0,
+        healthInsDed: 0,
+        annuityInsDed: 0,
+        pvdDed: 0,
+        rmfSsfDed: 0,
+        thaiEsgDed: 0,
+        whtRegular: 0,
+        whtAnnex: 0,
+        whtOther: 0
+      };
+      Object.entries(defaults).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val;
+      });
+      setFilingMode('single');
+    });
+
+    document.querySelectorAll('.calc-input').forEach((input) => {
+      input.addEventListener('input', recalculate);
+    });
+
+    recalculate();
+  </script>
+</body>
+</html>
